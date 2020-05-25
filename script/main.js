@@ -34,14 +34,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // mouse
-  tvCardImg.addEventListener('mouseover', () => {
-    tvCardImg.style.display = "none";
-  })
+  // // mouse
+  // tvCardImg.addEventListener('mouseover', () => {
+  //   tvCardImg.style.display = "none";
+  // })
 
-  tvCardImg.addEventListener('mouseout', () => {
-    tvCardImg.style.display = "block";
-  })
+  // tvCardImg.addEventListener('mouseout', () => {
+  //   tvCardImg.style.display = "block";
+  // })
 
 
 })
