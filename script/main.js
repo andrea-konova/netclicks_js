@@ -15,7 +15,13 @@ document.addEventListener('DOMContentLoaded', function () {
     description = document.querySelector('.description'),
     modalLink = document.querySelector('.modal__link'),
     searchForm = document.querySelector('.search__form'),
-    searchFormInput = document.querySelector('.search__form-input');
+    searchFormInput = document.querySelector('.search__form-input'),
+    preloader = document.querySelector('.preloader'),
+    dropdown = document.querySelectorAll('.dropdown'),
+    tvShowsHead = document.querySelector('.tv-shows__head'),
+    posterWrapper  = document.querySelector('.poster__wrapper'),
+    modalContent = document.querySelector('.modal__content'),
+    pagination = document.querySelector('.pagination');
 
   const loading = document.createElement('div');
   loading.className = 'loading';
@@ -46,16 +52,48 @@ document.addEventListener('DOMContentLoaded', function () {
       return this.getData('card.json');
     }
 
-    getSearchResult = query => this
-      .getData(`${this.SERVER}/search/tv?api_key=${this.API_KEY}&language=ru-RU&query=${query}`);
+    getSearchResult = query => {
+      this.temp = `${this.SERVER}/search/tv?api_key=${this.API_KEY}&language=ru-RU&query=${query}`;
+      return this.getData(this.temp);
+    }
+
+    getNextPage = page => {
+      return this.getData(this.temp + '&page=' + page);
+    }
 
     getTvShow = id => this
       .getData(`${this.SERVER}/tv/${id}?api_key=${this.API_KEY}&language=ru-RU`);
+
+    getTopRated = () => this
+      .getData(`${this.SERVER}/tv/top_rated?api_key=${this.API_KEY}&language=ru-RU`);
     
+    getPopular = () => this
+      .getData(`${this.SERVER}/tv/popular?api_key=${this.API_KEY}&language=ru-RU`);
+
+    getToday = () => this
+      .getData(`${this.SERVER}/tv/airing_today?api_key=${this.API_KEY}&language=ru-RU`);
+    
+    getWeek = () => this
+      .getData(`${this.SERVER}/tv/on_the_air?api_key=${this.API_KEY}&language=ru-RU`);
+      
   }
 
-  const renderCard = response => {
+  const dbService = new DBService();
+
+  const renderCard =(response, target) => {
     tvShowsList.textContent = '';
+
+    console.log(response);
+
+    if (!response.total_results) {
+      loading.remove();
+      tvShowsHead.textContent = 'К сожалению по ващему запросу ничего не найдено ...';
+      tvShowsHead.style.color = 'red';
+      return;
+    }
+
+    tvShowsHead.textContent = target ? target.textContent : 'Результат поиска:';
+    tvShowsHead.style.color = 'green';
 
     response.results.forEach(item => {
       const { 
@@ -88,22 +126,39 @@ document.addEventListener('DOMContentLoaded', function () {
       tvShowsList.append(card);
 
     });
-  }
 
+    pagination.textContent = '';
+
+    if (!target && response.total_pages > 1) {
+      for (let i = 1; i <= response.total_pages; i++) {
+        pagination.innerHTML += `<li><a href="#" class="pages">${i}</a></li>`
+        
+      }
+    }
+  };
+
+  // search
   searchForm.addEventListener('submit', event => {
     event.preventDefault(); 
     const value = searchFormInput.value.trim();
     if (value) {
       tvShows.append(loading);
-      new DBService().getSearchResult(value).then(renderCard);
+      dbService.getSearchResult(value).then(renderCard);
     }
     searchFormInput.value = '';
   });
  
   // open & close menu
+  const closeDropdown = () => {
+    dropdown.forEach(item => {
+      item.classList.remove('active');
+    })
+  }
+
   hamburger.addEventListener('click', () => {
     leftMenu.classList.toggle('openMenu');
     hamburger.classList.toggle('open');
+    closeDropdown();
   });
 
   // close menu if click is not in the menu area 
@@ -127,6 +182,31 @@ document.addEventListener('DOMContentLoaded', function () {
       leftMenu.classList.add('openMenu');
       hamburger.classList.add('open');
     }
+
+    if (target.closest('#top-rated')) {
+      tvShows.append(loading);
+      dbService.getTopRated().then((response) => renderCard(response, target));
+    }
+
+    if (target.closest('#popular')) {
+      tvShows.append(loading);
+      dbService.getPopular().then((response) => renderCard(response, target));
+    }
+      
+    if (target.closest('#today')) {
+      tvShows.append(loading);
+      dbService.getToday().then((response) => renderCard(response, target));
+    }
+
+    if (target.closest('#week')) {
+      tvShows.append(loading);
+      dbService.getWeek().then((response) => renderCard(response, target));
+    }
+
+    if (target.closest('#search')) {
+      tvShowsList.textContent = '';
+      tvShowsHead.textContent = '';
+    }
   });
 
   // open modal
@@ -135,9 +215,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const card = target.closest('.tv-card');
     
     if (card) {
-      new DBService().getTvShow(card.id)
+      preloader.style.display = 'block';
+
+      dbService.getTvShow(card.id)
         .then(data => {
-          tvCardImg.src = IMG_URL + data.poster_path;
+
+          if (data.poster_path) {
+            tvCardImg.src = IMG_URL + data.poster_path;
+            tvCardImg.alt = data.name;
+            posterWrapper.style.display = '';
+          } else {
+            posterWrapper.style.display = 'none';
+            modalContent.style.paddingLeft = '25px'; 
+          }
+
           modalTitle.textContent = data.name;
           genresList.textContent = '';
           for (let item of data.genres) {
@@ -151,6 +242,10 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(() => {
           document.body.style.overflow = 'hidden';
           modal.classList.remove('hide');
+        })
+
+        .finally(() => {
+          preloader.style.display = '';
         })
     }
   })
@@ -181,6 +276,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
   tvShowsList.addEventListener('mouseover', changeImage);
   tvShowsList.addEventListener('mouseout', changeImage)
+
+  // pagination
+  pagination.addEventListener('click', event => {
+    event.preventDefault();
+    const target = event.target;
+    if (target.classList.contains('pages')) {
+      tvShows.append(loading);
+      dbService.getNextPage(target.textContent).then(renderCard);
+    }
+  })
 
 
 })
